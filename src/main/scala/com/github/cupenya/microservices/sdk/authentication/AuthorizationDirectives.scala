@@ -4,8 +4,12 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive1, Directives}
 import com.github.cupenya.microservices.sdk.logging.Logging
 
+import scala.concurrent.ExecutionContext
+
 trait AuthorizationDirectives extends Logging {
   self: Directives =>
+
+  implicit val ec: ExecutionContext
 
   // TODO: dep injection
   private val tokenVerifier = new JwtTokenVerifier
