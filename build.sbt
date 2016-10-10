@@ -16,7 +16,7 @@ libraryDependencies ++= {
   val commonsLang3V    = "3.4"
   val commonsCodecV    = "1.10"
   val jwtV             = "0.8.1"
-  val reactiveMongoV   = "0.11.14"
+  val mongoScalaDriverV = "1.2.0-beta1"
 
   Seq(
     "com.typesafe.akka" %% "akka-http-core"                    % akkaV,
@@ -25,7 +25,7 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-slf4j"                        % akkaV,
     "org.slf4s"         %% "slf4s-api"                         % slf4sV,
     "com.pauldijou"     %% "jwt-core"                          % jwtV,
-    "org.reactivemongo" %% "reactivemongo"                     % reactiveMongoV,
+    "org.mongodb.scala" %% "mongo-scala-driver"                % mongoScalaDriverV,
     "org.apache.commons"% "commons-lang3"                      % commonsLang3V,
     "commons-codec"     % "commons-codec"                      % commonsCodecV,
     "ch.qos.logback"    % "logback-classic"                    % logbackV,

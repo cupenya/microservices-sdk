@@ -1,44 +1,46 @@
 package com.github.cupenya.microservices.sdk.dao
 
-import reactivemongo.api.DefaultDB
-import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.bson._
+import org.mongodb.scala._
+import spray.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
+import spray.json.DefaultJsonProtocol.StringJsonFormat
+import scala.language.implicitConversions
 
-trait SimpleMongoDao[T <: Product] extends MongoDao[String, T] {
-  implicit def idReader: BSONReader[BSONString, String] = BSONStringHandler
-  implicit def idWriter: BSONWriter[String, BSONString] = BSONStringHandler
+abstract class SimpleMongoDao[T : JsonFormat] extends MongoDao[String, T] {
+  implicit val stringJsonFormat = StringJsonFormat // this is to make sure the import is used
 }
 
-trait MongoDao[ID, T <: Product] {
+abstract class MongoDao[ID : JsonFormat, T : JsonFormat] {
   protected def collectionName: String
-  def eventualCollection(db: Future[DefaultDB])(implicit ec: ExecutionContext): Future[BSONCollection] =
-    db.map(_(collectionName))
 
-  implicit def entityReader: BSONDocumentReader[T] // Macros.reader[YourCaseClass] to implement
-  implicit def entityWriter: BSONDocumentWriter[T] // Macros.writer[YourCaseClass] to implement
+  private def collection(implicit db: MongoDatabase) = db.getCollection(collectionName)
 
-  implicit def idReader: BSONReader[_ <: BSONValue, ID] // Macros.reader[YourCaseClass] to implement
-  implicit def idWriter: BSONWriter[ID, _ <: BSONValue] // Macros.writer[YourCaseClass] to implement
+  private def docToT(doc: Document): T =
+    doc.toJson.parseJson.convertTo[T]
 
-  implicit class RichBsonCollection(collection: BSONCollection) {
-    def list(doc: BSONDocument)(implicit ec: ExecutionContext): Future[List[T]] =
-      collection.find(doc).cursor[T]().collect[List]()
+  private def eToDoc[E : JsonFormat](e: E): Document =
+    Document(e.toJson.toString)
 
-    def findOne(id: ID)(implicit ec: ExecutionContext): Future[Option[T]] =
-      findOne(document("_id" -> id))
+  implicit def tToDoc(t: T): Document = eToDoc(t)
 
-    def findOne(doc: BSONDocument)(implicit ec: ExecutionContext): Future[Option[T]] =
-      list(doc).map(_.headOption)
+  implicit def idToDoc(id: ID): Document = eToDoc(id)
 
-    def removeByField(doc: BSONDocument)(implicit ec: ExecutionContext): Future[Option[T]] =
-      collection.findAndRemove(doc).map(_.result[T])
+  def list(doc: Document)(implicit db: MongoDatabase): Future[Seq[T]] =
+    collection.find(doc).map(docToT).toFuture()
 
-    def insert(doc: BSONDocument)(implicit ec: ExecutionContext): Future[Boolean] =
-      collection.insert(doc).map(_.ok)
+  def findOne(id: ID)(implicit db: MongoDatabase): Future[Option[T]] =
+    findOne(Document("_id" -> idToDoc(id)))
 
-    def insert(t: T)(implicit ec: ExecutionContext): Future[Boolean] =
-      collection.insert(t).map(_.ok)
-  }
+  def findOne(doc: Document)(implicit db: MongoDatabase): Future[Option[T]] =
+    collection.find(doc).map(doc => Option(doc).map(docToT)).head()
+
+  def removeByField(doc: Document)(implicit db: MongoDatabase): Future[Option[T]] =
+    collection.findOneAndDelete(doc).map(doc => Option(doc).map(docToT)).head()
+
+  def insert(doc: Document)(implicit db: MongoDatabase): Future[Unit] =
+    collection.insertOne(doc).map(_ => {}).head()
+
+  def insert(t: T)(implicit db: MongoDatabase): Future[Unit] =
+    collection.insertOne(t).map(_ => {}).head()
 }
